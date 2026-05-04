@@ -1,93 +1,168 @@
 """
-Deep Learning model for insurance claims data extraction.
+LLM-based text generation for insurance claims.
+Generates descriptions of insurance claims from structured data.
 """
 
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
+import os
+from typing import Dict, List
 import numpy as np
 
 
-def create_model(input_dim, output_dim=1, hidden_units=[256, 128, 64]):
+class ClaimsLLMGenerator:
+    """Generates claim descriptions using a Language Model."""
+    
+    def __init__(self, model_name: str = "gpt2"):
+        """
+        Initialize the LLM generator.
+        
+        Args:
+            model_name: Name of the model to use
+                - "gpt2": Free, local model (default)
+                - "openai": Requires OPENAI_API_KEY environment variable
+                - "hf-model": HuggingFace model
+        """
+        self.model_name = model_name
+        self.model = None
+        self.tokenizer = None
+        self._load_model()
+    
+    def _load_model(self):
+        """Load the LLM model."""
+        print(f"Loading {self.model_name}...")
+        
+        if self.model_name == "gpt2":
+            from transformers import GPT2Tokenizer, GPT2LMHeadModel
+            self.tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+            self.model = GPT2LMHeadModel.from_pretrained("gpt2", pad_token_id=self.tokenizer.eos_token_id)
+            print("✅ GPT-2 loaded successfully")
+        
+        elif self.model_name == "openai":
+            import openai
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY not found in environment variables")
+            openai.api_key = api_key
+            print("✅ OpenAI API configured")
+        
+        else:
+            from transformers import AutoTokenizer, AutoModelForCausalLM
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_name)
+            print(f"✅ {self.model_name} loaded successfully")
+    
+    def create_prompt(self, claim_data: Dict) -> str:
+        """
+        Create a prompt from structured claim data.
+        
+        Args:
+            claim_data: Dictionary with claim information
+        
+        Returns:
+            Formatted prompt for the LLM
+        """
+        prompt = "Écris une brève description d'un sinistre d'assurance basée sur ces données:\n\n"
+        
+        for key, value in claim_data.items():
+            prompt += f"- {key}: {value}\n"
+        
+        prompt += "\nDescription du sinistre:"
+        return prompt
+    
+    def generate(self, claim_data: Dict, max_length: int = 100, num_beams: int = 4) -> str:
+        """
+        Generate a description for a claim.
+        
+        Args:
+            claim_data: Dictionary with claim information
+            max_length: Maximum length of generated text
+            num_beams: Number of beams for beam search
+        
+        Returns:
+            Generated claim description
+        """
+        if self.model_name == "openai":
+            return self._generate_openai(claim_data)
+        else:
+            return self._generate_local(claim_data, max_length, num_beams)
+    
+    def _generate_local(self, claim_data: Dict, max_length: int, num_beams: int) -> str:
+        """Generate using local model (GPT-2 or HuggingFace)."""
+        prompt = self.create_prompt(claim_data)
+        
+        # Tokenize
+        input_ids = self.tokenizer.encode(prompt, return_tensors='pt')
+        
+        # Generate
+        output = self.model.generate(
+            input_ids,
+            max_length=max_length + len(input_ids[0]),
+            num_beams=num_beams,
+            temperature=0.7,
+            top_p=0.9,
+            do_sample=True,
+            no_repeat_ngram_size=2
+        )
+        
+        # Decode
+        generated_text = self.tokenizer.decode(output[0], skip_special_tokens=True)
+        
+        # Extract only the generated part (remove prompt)
+        return generated_text.replace(prompt, "").strip()
+    
+    def _generate_openai(self, claim_data: Dict) -> str:
+        """Generate using OpenAI API."""
+        import openai
+        
+        prompt = self.create_prompt(claim_data)
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Tu es un expert en assurance. Fournis des descriptions courtes et claires de sinistres."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=100,
+            temperature=0.7
+        )
+        
+        return response.choices[0].message.content.strip()
+    
+    def generate_batch(self, claims_data: List[Dict]) -> List[str]:
+        """
+        Generate descriptions for multiple claims.
+        
+        Args:
+            claims_data: List of claim dictionaries
+        
+        Returns:
+            List of generated descriptions
+        """
+        descriptions = []
+        for i, claim in enumerate(claims_data):
+            print(f"Generating {i+1}/{len(claims_data)}...", end='\r')
+            description = self.generate(claim)
+            descriptions.append(description)
+        print(f"✅ Generated {len(descriptions)} descriptions")
+        return descriptions
+
+
+def create_generator(model_name: str = "gpt2") -> ClaimsLLMGenerator:
+    """Factory function to create an LLM generator."""
+    return ClaimsLLMGenerator(model_name)
+
+
+def generate_claim_description(claim_data: Dict, generator: ClaimsLLMGenerator = None) -> str:
     """
-    Create a neural network model.
+    Quick function to generate a single claim description.
     
     Args:
-        input_dim: Number of input features
-        output_dim: Number of output units (1 for regression/binary classification)
-        hidden_units: List of hidden layer sizes
+        claim_data: Dictionary with claim information
+        generator: Optional pre-loaded generator (creates new one if None)
     
     Returns:
-        Compiled Keras model
+        Generated description
     """
-    model = keras.Sequential([
-        layers.Dense(hidden_units[0], activation='relu', input_dim=input_dim),
-        layers.BatchNormalization(),
-        layers.Dropout(0.3),
-    ])
+    if generator is None:
+        generator = create_generator()
     
-    for units in hidden_units[1:]:
-        model.add(layers.Dense(units, activation='relu'))
-        model.add(layers.BatchNormalization())
-        model.add(layers.Dropout(0.3))
-    
-    model.add(layers.Dense(output_dim, activation='sigmoid' if output_dim == 1 else 'softmax'))
-    
-    model.compile(
-        optimizer='adam',
-        loss='binary_crossentropy' if output_dim == 1 else 'categorical_crossentropy',
-        metrics=['accuracy']
-    )
-    
-    return model
-
-
-def train_model(model, X_train, y_train, X_val=None, y_val=None, 
-                epochs=50, batch_size=32, verbose=1):
-    """
-    Train the model.
-    
-    Args:
-        model: Compiled Keras model
-        X_train: Training features
-        y_train: Training labels
-        X_val: Validation features (optional)
-        y_val: Validation labels (optional)
-        epochs: Number of training epochs
-        batch_size: Batch size for training
-        verbose: Verbosity level
-    
-    Returns:
-        Training history
-    """
-    validation_data = None
-    if X_val is not None and y_val is not None:
-        validation_data = (X_val, y_val)
-    
-    history = model.fit(
-        X_train, y_train,
-        validation_data=validation_data,
-        epochs=epochs,
-        batch_size=batch_size,
-        verbose=verbose,
-        callbacks=[
-            keras.callbacks.EarlyStopping(
-                monitor='val_loss' if validation_data else 'loss',
-                patience=5,
-                restore_best_weights=True
-            )
-        ]
-    )
-    
-    return history
-
-
-def evaluate_model(model, X_test, y_test):
-    """Evaluate model on test set."""
-    loss, accuracy = model.evaluate(X_test, y_test, verbose=0)
-    return {'loss': loss, 'accuracy': accuracy}
-
-
-def predict(model, X):
-    """Make predictions."""
-    return model.predict(X, verbose=0)
+    return generator.generate(claim_data)

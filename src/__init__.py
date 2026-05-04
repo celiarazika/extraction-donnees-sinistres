@@ -1,18 +1,17 @@
 """
-Insurance claims data extraction package.
+Insurance claims data extraction and LLM-based description generation package.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Data Science Team"
 
 from .data_processor import DataProcessor, process_pipeline
-from .model import create_model, train_model, evaluate_model, predict
+from .model import ClaimsLLMGenerator, create_generator, generate_claim_description
 
 __all__ = [
     'DataProcessor',
     'process_pipeline',
-    'create_model',
-    'train_model',
-    'evaluate_model',
-    'predict'
+    'ClaimsLLMGenerator',
+    'create_generator',
+    'generate_claim_description'
 ]

@@ -1,118 +1,264 @@
-# Extraction de données de sinistres à partir de contrats d'assurance
-Projet de Deep Learning/IA générative de Master 2
+# Extraction et Génération de Descriptions de Sinistres avec LLM
+Projet de Deep Learning/IA générative de Master 2 - **Utilise un Language Model (LLM) pour générer des descriptions textuelles**
 
 **Données:** https://www.kaggle.com/datasets/litvinenko630/insurance-claims
 
-## Structure du Projet
+## 🎯 Objectif
+
+Transformer les données structurées de sinistres d'assurance en **descriptions textuelles cohérentes et naturelles** en utilisant un Language Model. Au lieu de prédire des valeurs numériques, le système génère du texte explicatif.
+
+### Exemple :
+
+```
+Données brutes:
+  Type: Accident Auto
+  Montant: €5000
+  Statut: Ouvert
+  Cause: Collision
+
+Description générée:
+"Un accident automobile a été déclaré avec un montant estimé de 5000 euros. 
+Le sinistre résulte d'une collision et est actuellement en cours de traitement."
+```
+
+## 📁 Structure du Projet
 
 ```
 extraction-donnees-sinistres/
 ├── src/                          # Code production (réutilisable)
 │   ├── __init__.py
-│   ├── data_processor.py         # Preprocessing (nettoyage, encoding, normalisation)
-│   └── model.py                  # Architecture du modèle Deep Learning
+│   ├── data_processor.py         # Preprocessing (nettoyage, normalisation)
+│   └── model.py                  # 🆕 Classe ClaimsLLMGenerator (génération LLM)
 │
 ├── notebooks/                    # Exploration & expérimentation
-│   ├── main.ipynb               # (À déplacer pour exploration uniquement)
-│   └── analysis.ipynb           # (Optionnel: analyses spécifiques)
+│   ├── analysis.ipynb           # EDA et exploration
 │
 ├── data/                         # Données
-│   ├── X_train.csv
-│   ├── X_test.csv
-│   └── data_processed.csv
+│   └── claims_with_descriptions.csv  # Résultats générés
 │
-├── models/                       # Modèles et preprocesseurs
-│   ├── insurance_model.h5       # Modèle entraîné
-│   ├── scaler.pkl               # Normalisation
-│   └── label_encoders.pkl       # Encodeurs catégoriels
-│
-├── train.py                      # Script d'entraînement standalone
-├── app.py                        # Interface Streamlit (inférence)
+├── train.py                      # 🆕 Script pour générer descriptions (sans entraînement)
+├── app_llm.py                    # 🆕 Interface Streamlit LLM
+├── requirements.txt              # Dépendances (transformers, torch)
 └── README.md                     # Documentation
-
 ```
 
-## Démarrage Rapide
+## 🚀 Démarrage Rapide
 
 ### 1. Installation des dépendances
 
 ```bash
-pip install pandas numpy scikit-learn tensorflow streamlit
+pip install -r requirements.txt
 ```
 
-### 2. Preprocessing et Entraînement
+**Dépendances principales:**
+- `transformers` - HuggingFace pour les modèles LLM
+- `torch` - PyTorch (backend pour les LLM)
+- `streamlit` - Interface web
+- `pandas`, `scikit-learn` - Data processing
+
+### 2. Générer des Descriptions
 
 ```bash
 python train.py
 ```
 
 Cela va:
-- Charger les données
-- Nettoyer et normaliser
-- Entraîner le modèle Deep Learning
-- Sauvegarder les résultats
+- Charger les données brutes
+- Initialiser le LLM (GPT-2 par défaut)
+- Générer des descriptions pour 10 premiers sinistres (configurable)
+- Sauvegarder les résultats dans `data/claims_with_descriptions.csv`
 
-### 3. Interface Web (Inférence)
+**Output:**
+```
+📋 Exemples:
+Sinistre #1
+  Description: "Un sinistre de type sinistre habitation avec un montant..."
 
-```bash
-streamlit run app.py
+Sinistre #2
+  Description: "Accident automobile déclaré pour 5000 euros..."
 ```
 
-Puis ouvrez: http://localhost:8501
+### 3. Interface Web (Streamlit)
 
-## Utilisation
+```bash
+streamlit run app_llm.py
+```
+
+Ouvrez: http://localhost:8501
+
+**Sections disponibles:**
+- 🏠 **Accueil** - Vue d'ensemble du projet
+- ✍️ **Générer Description** - Génération pour 1 sinistre
+- 📁 **Batch Processing** - Traiter fichiers CSV complets
+- 📊 **Informations** - Stats du système
+
+## 💻 Utilisation Programmée
 
 ### Depuis un script Python
 
 ```python
-from src import DataProcessor, create_model, train_model
+from src.model import create_generator
 
-# Preprocessing
-processor = DataProcessor()
-df = processor.load_data('Insurance claims data.csv')
-df_clean = processor.clean_data(df)
-df_transformed = processor.transform_data(df_clean)
+# Créer le générateur
+generator = create_generator(model_name='gpt2')
 
-# Modélisation
-model = create_model(input_dim=df_transformed.shape[1])
-history = train_model(model, X_train, y_train)
+# Générer une description
+claim_data = {
+    "Type": "Accident Auto",
+    "Montant": 5000,
+    "Statut": "Ouvert",
+    "Cause": "Collision"
+}
+
+description = generator.generate(claim_data, max_length=100)
+print(description)
 ```
 
-### Depuis un Jupyter Notebook
+### Traitement batch
 
-Voir `notebooks/` pour des exemples d'exploration (optionnel)
+```python
+import pandas as pd
+from src.model import create_generator
 
-## Workflow
+# Charger les données
+df = pd.read_csv('Insurance claims data.csv')
 
-```
-[Données brutes]
-      ↓
-   train.py  (ou notebook pour exploration)
-      ↓
-[Preprocessing: nettoyage, encoding, normalisation]
-      ↓
-[Entraînement: tensorflow/keras]
-      ↓
-[Modèle + Preprocesseurs sauvegardés]
-      ↓
-   app.py  (Streamlit)
-      ↓
-[Interface d'inférence]
+# Créer générateur
+generator = create_generator()
+
+# Générer descriptions
+descriptions = generator.generate_batch(df.head(10).to_dict('records'))
+
+# Ajouter au dataframe
+df['description'] = descriptions
+df.to_csv('output.csv', index=False)
 ```
 
-## Notes
+## 🔧 Configuration
 
-- **`src/`** contient le code réutilisable et modulaire
-- **`train.py`** script autonome pour entraînement (peut être lancé en production)
-- **`app.py`** interface utilisateur pour inférence
-- **Notebooks** sont utilisés uniquement pour exploration/expérimentation
-- Les préprocesseurs (scaler, encodeurs) sont sauvegardés pour cohérence train/test
+### Changer le modèle LLM
 
-## 🛠 Développement Futur
+Dans `train.py` ou `app_llm.py`, modifiez `LLM_MODEL`:
 
-- [ ] Ajouter validation cross-validation
-- [ ] Implémenter des métriques métier
-- [ ] Ajouter des tests unitaires
-- [ ] Configuration avec `.env`
-- [ ] Logging et monitoring
-- [ ] API REST (FastAPI/Flask)
+```python
+# Options:
+LLM_MODEL = 'gpt2'                    # Default - léger et rapide
+LLM_MODEL = 'distilgpt2'              # Plus petit/plus rapide
+LLM_MODEL = 'openai'                  # API OpenAI (nécessite OPENAI_API_KEY)
+LLM_MODEL = 'mistral-7b'              # Modèle HuggingFace plus puissant
+```
+
+### Configurer OpenAI (optionnel)
+
+```bash
+set OPENAI_API_KEY=sk-... (Windows PowerShell)
+# ou
+export OPENAI_API_KEY=sk-... (Linux/macOS)
+```
+
+## 📊 Workflow
+
+```
+┌─────────────────────────────┐
+│  Données brutes CSV          │
+│  (Insurance claims data)     │
+└──────────────┬──────────────┘
+               ↓
+┌─────────────────────────────┐
+│  Preprocessing              │
+│  (nettoyage, normalisation) │
+└──────────────┬──────────────┘
+               ↓
+┌─────────────────────────────┐
+│  LLM Generator              │
+│  (transformers library)     │
+└──────────────┬──────────────┘
+               ↓
+┌─────────────────────────────┐
+│  Descriptions générées      │
+│  (CSV ou API Streamlit)     │
+└─────────────────────────────┘
+```
+
+## 🛠️ Développement
+
+### Ajouter un nouveau modèle LLM
+
+Éditer `src/model.py`:
+
+```python
+def _load_model(self):
+    if self.model_name == "mon_modele":
+        # Charger votre modèle
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+        self.tokenizer = AutoTokenizer.from_pretrained("mon_modele")
+        self.model = AutoModelForCausalLM.from_pretrained("mon_modele")
+```
+
+### Améliorer les prompts
+
+Éditer la fonction `create_prompt()` pour générer des prompts plus spécifiques:
+
+```python
+def create_prompt(self, claim_data: Dict) -> str:
+    # Personnaliser le format du prompt
+    prompt = "Voici les détails d'un sinistre:\n"
+    # ... votre logique
+    return prompt
+```
+
+### Modifier les paramètres de génération
+
+Dans la fonction `generate()`:
+
+```python
+output = self.model.generate(
+    input_ids,
+    max_length=150,          # Augmenter pour texte plus long
+    num_beams=8,             # Plus de beams = meilleure qualité mais plus lent
+    temperature=0.8,         # 0.5 = plus déterministe, 1.0 = plus créatif
+    top_p=0.95,             # Nucleus sampling
+    do_sample=True,          # Activation du sampling
+)
+```
+
+## 📚 Ressources
+
+- [HuggingFace Transformers](https://huggingface.co/transformers/)
+- [Streamlit Documentation](https://docs.streamlit.io/)
+- [GPT-2 Model Card](https://huggingface.co/gpt2)
+- [PyTorch Documentation](https://pytorch.org/docs/)
+
+## 🐛 Dépannage
+
+### "ModuleNotFoundError: No module named 'transformers'"
+```bash
+pip install transformers torch
+```
+
+### "CUDA out of memory"
+Le modèle est trop gros pour votre GPU. Utilisez `distilgpt2` ou CPU:
+```python
+generator = create_generator(model_name='distilgpt2')
+```
+
+### Les descriptions ne sont pas pertinentes
+Ajustez les paramètres de génération ou utilisez un modèle plus puissant
+
+## 📋 Améliorations Futures
+
+- [ ] Fine-tuning sur corpus de sinistres
+- [ ] Support de plusieurs langues
+- [ ] Génération avec contraintes (max mots, structure fixe)
+- [ ] Classement qualité descriptions
+- [ ] Intégration avec APIs externes
+- [ ] Caching pour accélération
+- [ ] Tests unitaires
+
+## 📄 License
+
+Projet académique - Master 2 IA/DL
+
+---
+
+**Questions?** Vérifiez `GETTING_STARTED.md` pour plus de détails.
