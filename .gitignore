@@ -1,3 +1,39 @@
+# Fichiers de données
 Insurance claims data.csv
+*.csv
+
+# Fichiers de documentation
 note_evaluation_projet_ISFA.pdf
+GETTING_STARTED.md
+
+# Notebooks de travail ancien
 TD9_Agent.ipynb
+main.ipynb
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project specific
+models/
+*.h5
+*.pkl
+.streamlit/
+.cache/
