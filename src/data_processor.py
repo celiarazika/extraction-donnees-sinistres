@@ -1,194 +1,285 @@
 """
-Data processing module for insurance claims extraction.
-Handles loading, cleaning, encoding, and normalization of data.
+Data processor for insurance claims - LLM-optimized.
+Transforms raw data into semantic, expert-friendly descriptions.
 """
 
-import pandas as pd
+import re
 import numpy as np
-import pickle
-import os
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+import pandas as pd
 
 
 class DataProcessor:
-    """Processes insurance claims data for machine learning."""
+    """Transforms raw claims data into semantic descriptions for LLM injection."""
     
     def __init__(self):
-        self.scaler = StandardScaler()
-        self.label_encoders = {}
-        self.numeric_cols = []
-        self.categorical_cols = []
-        self.numeric_cols_original = []
+        """Initialize with metadata mappings."""
+        # Segment mapping
+        self.segment_map = {
+            "A": "Citadine",
+            "B": "Berline compacte", 
+            "B1": "Berline compacte",
+            "B2": "Berline compacte",
+            "C": "Berline familiale",
+            "C1": "Berline familiale",
+            "C2": "Berline familiale / SUV",
+            "D": "Berline grande classe",
+            "Utility": "Utilitaire"
+        }
+        
+        # Fuel type mapping
+        self.fuel_map = {
+            "Petrol": "Essence",
+            "Diesel": "Diesel",
+            "CNG": "Gaz naturel (CNG)",
+            "Hybrid": "Hybride"
+        }
+        
+        # Transmission mapping
+        self.transmission_map = {
+            "Manual": "Manuelle",
+            "Automatic": "Automatique"
+        }
+        
+        # Brake type mapping
+        self.brake_map = {
+            "Disc": "Disques",
+            "Drum": "Tambours"
+        }
+        
+        # Steering mapping
+        self.steering_map = {
+            "Manual": "Manuelle",
+            "Power": "Assistée",
+            "Electric": "Électrique"
+        }
+        
+        # Region density categories
+        self.density_categories = {
+            "urban_dense": (20000, float('inf'), "Zone urbaine très dense"),
+            "urban": (5000, 20000, "Zone urbaine"),
+            "suburban": (1000, 5000, "Zone semi-urbaine"),
+            "rural": (0, 1000, "Zone rurale")
+        }
     
     def load_data(self, filepath):
         """Load CSV data."""
         return pd.read_csv(filepath)
-    
-    def analyze_quality(self, df):
-        """Analyze data quality: missing values, duplicates, dtypes."""
-        print("="*60)
-        print("ANALYSE DE LA QUALITÉ DES DONNÉES")
-        print("="*60)
-        
-        print(f"\nDimensions: {df.shape}")
-        print(f"\nTypes de données:\n{df.dtypes}")
-        
-        # Valeurs manquantes
-        missing = df.isnull().sum()
-        if missing.sum() > 0:
-            missing_pct = (missing / len(df)) * 100
-            missing_df = pd.DataFrame({
-                'Colonne': missing.index,
-                'Manquantes': missing.values,
-                'Pourcentage': missing_pct.values
-            }).sort_values('Pourcentage', ascending=False)
-            print(f"\nValeurs manquantes:\n{missing_df[missing_df['Manquantes'] > 0]}")
-        else:
-            print("\nAucune valeur manquante détectée")
-        
-        # Doublons
-        duplicates = df.duplicated().sum()
-        print(f"\nDoublons: {duplicates}")
-        
-        return missing.sum() > 0, duplicates > 0
-    
+  
     def clean_data(self, df):
         """Clean data: remove duplicates and handle missing values."""
         df_clean = df.copy()
         
-        print(f"\nÉtat initial: {df_clean.shape}")
-        
-        # Supprimer les doublons
+        # Remove duplicates
         df_clean = df_clean.drop_duplicates()
-        print(f"Après suppression des doublons: {df_clean.shape}")
         
-        # Traiter les valeurs manquantes
-        missing_cols = df_clean.columns[df_clean.isnull().any()].tolist()
+        # Fill missing values
+        text_cols = df_clean.select_dtypes(include=['object']).columns
+        df_clean[text_cols] = df_clean[text_cols].fillna("Inconnu").apply(
+            lambda x: x.str.strip() if x.dtype == 'object' else x
+        )
         
-        if missing_cols:
-            print(f"\nTraitement des colonnes avec valeurs manquantes:")
-            for col in missing_cols:
-                if df_clean[col].dtype in ['float64', 'int64']:
-                    df_clean[col].fillna(df_clean[col].median(), inplace=True)
-                    print(f"  {col}: remplissage avec la médiane")
-                else:
-                    mode_val = df_clean[col].mode()[0] if not df_clean[col].mode().empty else 'Unknown'
-                    df_clean[col].fillna(mode_val, inplace=True)
-                    print(f"  {col}: remplissage avec le mode")
-        
-        print(f"\nAprès nettoyage: {df_clean.isnull().sum().sum()} valeurs manquantes restantes")
+        num_cols = df_clean.select_dtypes(include=[np.number]).columns
+        df_clean[num_cols] = df_clean[num_cols].fillna(0)
         
         return df_clean
     
-    def detect_outliers(self, df):
-        """Detect outliers using IQR method."""
-        print("\n" + "="*60)
-        print("DÉTECTION DES VALEURS ABERRANTES")
-        print("="*60)
+    def preprocess_claims(self, df):
+        """Orchestrate preprocessing. Returns (df, encoders, scaler) tuple."""
+        df_final = df.copy()
         
-        numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
-        outlier_info = {}
+        # Add semantic column for LLM
+        df_final['llm_input'] = df_final.apply(self._build_semantic_report, axis=1)
         
-        for col in numeric_cols:
-            Q1 = df[col].quantile(0.25)
-            Q3 = df[col].quantile(0.75)
-            IQR = Q3 - Q1
-            lower_bound = Q1 - 1.5 * IQR
-            upper_bound = Q3 + 1.5 * IQR
-            
-            outliers = df[(df[col] < lower_bound) | (df[col] > upper_bound)]
-            if len(outliers) > 0:
-                outlier_info[col] = {
-                    'count': len(outliers),
-                    'lower_bound': lower_bound,
-                    'upper_bound': upper_bound
-                }
-                print(f"\n{col}: {len(outliers)} valeurs aberrantes")
-                print(f"  Plage normale: [{lower_bound:.2f}, {upper_bound:.2f}]")
-        
-        return outlier_info
+        return df_final, {}, None
     
-    def transform_data(self, df):
-        """Encode categorical variables and normalize numeric variables."""
-        print("\n" + "="*60)
-        print("TRANSFORMATION ET NORMALISATION")
-        print("="*60)
-        
-        df_transformed = df.copy()
-        
-        # Identifier les colonnes
-        self.categorical_cols = df_transformed.select_dtypes(include=['object']).columns.tolist()
-        self.numeric_cols = df_transformed.select_dtypes(include=['float64', 'int64']).columns.tolist()
-        self.numeric_cols_original = self.numeric_cols.copy()
-        
-        print(f"\nVariables catégorielles: {len(self.categorical_cols)}")
-        print(f"Variables numériques: {len(self.numeric_cols)}")
-        
-        # Encodage des variables catégorielles
-        print("\nEncodage des variables catégorielles:")
-        for col in self.categorical_cols:
-            le = LabelEncoder()
-            df_transformed[col] = le.fit_transform(df_transformed[col].astype(str))
-            self.label_encoders[col] = le
-            print(f"  {col}: {len(le.classes_)} catégories")
-        
-        # Normalisation des variables numériques
-        print("\nNormalisation des variables numériques:")
-        df_transformed[self.numeric_cols] = self.scaler.fit_transform(
-            df_transformed[self.numeric_cols]
-        )
-        print(f"  {len(self.numeric_cols)} colonnes normalisées")
-        
-        return df_transformed
+    def _categorize_density(self, density):
+        """Convert numeric density to qualitative category."""
+        try:
+            d = float(density)
+            for key, (min_d, max_d, label) in self.density_categories.items():
+                if min_d <= d < max_d:
+                    return label
+            return "Zone inconnue"
+        except:
+            return "Zone inconnue"
     
-    def save_preprocessors(self, output_dir='models'):
-        """Save scaler and label encoders for later use."""
-        os.makedirs(output_dir, exist_ok=True)
+    def _extract_power(self, max_power_str):
+        """Extract power in bhp from string like '113.45bhp@4000rpm'."""
+        try:
+            match = re.search(r'([\d.]+)\s*bhp', str(max_power_str))
+            return float(match.group(1)) if match else None
+        except:
+            return None
+    
+    def _extract_torque(self, max_torque_str):
+        """Extract torque in Nm from string like '250Nm@2750rpm'."""
+        try:
+            match = re.search(r'([\d.]+)\s*Nm', str(max_torque_str))
+            return float(match.group(1)) if match else None
+        except:
+            return None
+    
+    def _build_safety_profile(self, row):
+        """Build semantic safety profile from equipment flags."""
+        safety_items = []
         
-        with open(os.path.join(output_dir, 'scaler.pkl'), 'wb') as f:
-            pickle.dump(self.scaler, f)
+        # Airbags
+        airbags = row.get('airbags', 0)
+        if airbags:
+            safety_items.append(f"{int(airbags)} airbags")
         
-        with open(os.path.join(output_dir, 'label_encoders.pkl'), 'wb') as f:
-            pickle.dump(self.label_encoders, f)
+        # NCAP Rating
+        ncap = row.get('ncap_rating', 0)
+        ncap_label = {0: "Aucune notation", 1: "1⭐", 2: "2⭐", 3: "3⭐", 4: "4⭐", 5: "5⭐"}
+        ncap_text = ncap_label.get(int(ncap), f"{int(ncap)} étoiles")
+        safety_items.append(f"NCAP: {ncap_text}")
         
-        print(f"\nPréprocesseurs sauvegardés dans '{output_dir}'")
-    
-    def load_preprocessors(self, output_dir='models'):
-        """Load scaler and label encoders from disk."""
-        with open(os.path.join(output_dir, 'scaler.pkl'), 'rb') as f:
-            self.scaler = pickle.load(f)
+        # Key safety features
+        safety_features = [
+            ('is_esc', "Correcteur de trajectoire (ESC)"),
+            ('is_brake_assist', "Assistance au freinage"),
+            ('is_speed_alert', "Alerte de vitesse"),
+        ]
         
-        with open(os.path.join(output_dir, 'label_encoders.pkl'), 'rb') as f:
-            self.label_encoders = pickle.load(f)
+        active_features = []
+        for col, label in safety_features:
+            if row.get(col) in [1, True, 'Yes']:
+                active_features.append(label)
         
-        print(f"Préprocesseurs chargés depuis '{output_dir}'")
-
-
-def process_pipeline(input_file, output_dir='data'):
-    """Complete processing pipeline: load -> clean -> transform -> save."""
-    processor = DataProcessor()
+        if active_features:
+            safety_items.append("Aides: " + ", ".join(active_features))
+        else:
+            safety_items.append("Aides à la conduite: Aucune")
+        
+        return " | ".join(safety_items)
     
-    print("1. Chargement des données...")
-    df = processor.load_data(input_file)
+    def _build_vehicle_profile(self, row):
+        """Build semantic vehicle profile."""
+        profile_items = []
+        
+        # Segment
+        segment = row.get('segment', 'Inconnu')
+        segment_label = self.segment_map.get(segment, segment)
+        profile_items.append(f"Segment: {segment_label}")
+        
+        # Fuel type
+        fuel = row.get('fuel_type', 'Inconnu')
+        fuel_label = self.fuel_map.get(fuel, fuel)
+        profile_items.append(f"Carburant: {fuel_label}")
+        
+        # Transmission
+        trans = row.get('transmission_type', 'Inconnu')
+        trans_label = self.transmission_map.get(trans, trans)
+        profile_items.append(f"Transmission: {trans_label}")
+        
+        # Power
+        power = self._extract_power(row.get('max_power', ''))
+        if power:
+            profile_items.append(f"Puissance: {power:.0f} bhp")
+        
+        # Rear brakes
+        brakes = row.get('rear_brakes_type', 'Inconnu')
+        brake_label = self.brake_map.get(brakes, brakes)
+        profile_items.append(f"Freins arrière: {brake_label}")
+        
+        return " | ".join(profile_items)
     
-    print("\n2. Analyse de la qualité...")
-    processor.analyze_quality(df)
+    def _build_driver_profile(self, row):
+        """Build semantic driver/holder profile."""
+        profile_items = []
+        
+        # Age
+        age = row.get('customer_age', 'Inconnu')
+        profile_items.append(f"Âge: {int(age) if age != 'Inconnu' else 'Inconnu'} ans")
+        
+        # Subscription length
+        sub_length = row.get('subscription_length', 0)
+        profile_items.append(f"Ancienneté abonnement: {sub_length:.1f} mois")
+        
+        # Region density
+        density = row.get('region_density', 0)
+        density_cat = self._categorize_density(density)
+        profile_items.append(f"Zone: {density_cat}")
+        
+        return " | ".join(profile_items)
     
-    print("\n3. Nettoyage...")
-    df_clean = processor.clean_data(df)
+    def _build_semantic_report(self, row):
+        """
+        Build complete semantic report for a single claim.
+        Outputs a structured bullet-point report, ready for LLM injection.
+        """
+        vehicle_age = row.get('vehicle_age', 0)
+        
+        report = []
+        report.append("=== PROFIL ASSURÉ ===")
+        report.append(self._build_driver_profile(row))
+        
+        report.append("\n=== VÉHICULE ===")
+        report.append(f"Âge du véhicule: {vehicle_age:.1f} ans")
+        report.append(self._build_vehicle_profile(row))
+        
+        report.append("\n=== SÉCURITÉ ET ÉQUIPEMENT ===")
+        report.append(self._build_safety_profile(row))
+        
+        # Risk assessment
+        report.append("\n=== ANALYSE DE RISQUE ===")
+        risk_factors = []
+        
+        # Vehicle age risk
+        if vehicle_age > 10:
+            risk_factors.append("Véhicule ancien (>10 ans): usure mécanique possible")
+        elif vehicle_age < 1:
+            risk_factors.append("Véhicule très récent: données de conduite limitées")
+        
+        # Safety rating risk
+        ncap = int(row.get('ncap_rating', 0))
+        if ncap <= 2:
+            risk_factors.append("Note NCAP faible: protection passive limitée")
+        
+        # Safety equipment risk
+        esc = row.get('is_esc', 0)
+        brake_assist = row.get('is_brake_assist', 0)
+        if esc not in [1, True, 'Yes'] and brake_assist not in [1, True, 'Yes']:
+            risk_factors.append("Absence d'aides modernes à la conduite")
+        
+        # Brake type risk
+        rear_brakes = row.get('rear_brakes_type', '')
+        if rear_brakes == 'Drum':
+            risk_factors.append("Freins arrière à tambour: efficacité réduite")
+        
+        # Driver age risk
+        driver_age = int(row.get('customer_age', 0))
+        if driver_age < 25:
+            risk_factors.append("Conducteur jeune: expérience de conduite limitée")
+        elif driver_age > 75:
+            risk_factors.append("Conducteur âgé: capacités réactionnelles réduites")
+        
+        if risk_factors:
+            for factor in risk_factors:
+                report.append(f"⚠️ {factor}")
+        else:
+            report.append("✓ Profil de risque standard")
+        
+        # Claim status
+        report.append("\n=== STATUT ===")
+        status = row.get('claim_status', 'Inconnu')
+        status_label = "Validé" if status in [1, True, 'Yes'] else "Refusé" if status in [0, False, 'No'] else "Inconnu"
+        report.append(f"Statut du sinistre: {status_label}")
+        
+        return "\n".join(report)
     
-    print("\n4. Détection des outliers...")
-    processor.detect_outliers(df_clean)
-    
-    print("\n5. Transformation...")
-    df_transformed = processor.transform_data(df_clean)
-    
-    # Sauvegarder les preprocesseurs
-    processor.save_preprocessors()
-    
-    # Sauvegarder les données transformées
-    os.makedirs(output_dir, exist_ok=True)
-    df_transformed.to_csv(os.path.join(output_dir, 'data_processed.csv'), index=False)
-    print(f"\nDonnées transformées sauvegardées dans '{output_dir}'")
-    
-    return processor, df_transformed
+    def format_for_llm(self, row_dict):
+        """
+        Format data for LLM injection.
+        Accepts dict or Series, returns semantic report.
+        """
+        # Convert Series to dict if needed
+        if isinstance(row_dict, pd.Series):
+            row_dict = row_dict.to_dict()
+        
+        # If already has semantic report, use it
+        if 'llm_input' in row_dict and row_dict['llm_input']:
+            return row_dict['llm_input']
+        
+        # Generate semantic report
+        return self._build_semantic_report(row_dict)

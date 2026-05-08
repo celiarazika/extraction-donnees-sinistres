@@ -37,34 +37,30 @@ class ClaimsLLMGenerator:
         )
         print("Ollama API configured (local - FREE)")
     
-    def create_prompt(self, claim_data: Dict) -> str:
+    def create_prompt(self, claim_data) -> str:
         """
-        Create a detailed prompt from structured claim data.
-        This prompt encourages comprehensive, detailed descriptions.
+        Create a prompt from structured claim data.
+        Accepts both dict and pre-formatted string input.
         
         Args:
-            claim_data: Dictionary with claim information
+            claim_data: Dictionary with claim information OR pre-formatted string
         
         Returns:
             Formatted prompt for the LLM
         """
-        # Format claim data with better structure
-        claim_details = "\n".join(f"- {key}: {value}" for key, value in claim_data.items())
+        # If already formatted as string, use it directly
+        if isinstance(claim_data, str):
+            claim_details = claim_data
+        else:
+            # Format claim data from dict
+            claim_details = "\n".join(f"- {key}: {value}" for key, value in claim_data.items())
         
-        prompt = f"""Tu es un expert en sinistres d'assurance automobile. Analyse ces données et rédige une description complète et détaillée du sinistre:
+        prompt = f"""Tu es un expert en sinistres d'assurance automobile. Analyse ces données et rédige une description concise et précise du dossier:
 
-DONNÉES DU SINISTRE:
+DONNÉES DU DOSSIER:
 {claim_details}
 
-ÉCRIS UNE DESCRIPTION QUI INCLUT:
-1. Le type et la nature du sinistre
-2. Les circonstances et conditions (météo, lieu, heure si connu)
-3. Les caractéristiques du véhicule (modèle, âge, condition)
-4. Les dégâts et impacts identifiés
-5. Les facteurs aggravants ou circonstances particulières
-6. Une analyse sommaire des responsabilités potentielles
-
-Rédige une description professionnelle, précise et de 50-100 mots qui serait acceptable pour un rapport d'expertise:
+Rédige une description professionnelle de 50-100 mots basée UNIQUEMENT sur les informations fourni au-dessus. Pas d'inventions, pas d'hypothèses:
 """
         return prompt
     
@@ -87,13 +83,13 @@ Rédige une description professionnelle, précise et de 50-100 mots qui serait a
         prompt = self.create_prompt(claim_data)
         
         response = self.client.chat.completions.create(
-            model="neural-chat",  # Changed from mistral for speed (2-3x faster)
+            model="phi3.5",  # Changed from mistral for speed (2-3x faster)
             messages=[
                 {"role": "system", "content": "You are a senior insurance claims expert with 20 years of experience. Provide detailed, accurate, and professional descriptions of insurance claims including all relevant elements for expertise."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=350,  # Reduced from 500 for faster generation
-            temperature=0.5,
+            max_tokens=500,  # Reduced from 500 for faster generation
+            temperature=0.2,
             top_p=0.9
         )
         

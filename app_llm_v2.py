@@ -98,12 +98,19 @@ def load_generator():
         return None
 
 @st.cache_resource
+def load_processor():
+    """Crée une instance du processeur de données."""
+    return DataProcessor()
+
+@st.cache_resource
 def load_data():
-    """Charge les données de sinistres."""
-    processor = DataProcessor()
+    """Charge et prétraite les données de sinistres."""
+    processor = load_processor()
     df = processor.load_data('Insurance claims data.csv')
     df_clean = processor.clean_data(df)
-    return df_clean
+    # Apply full preprocessing before LLM
+    df_processed, _, _ = processor.preprocess_claims(df_clean)
+    return df_processed
 
 # ============================================================
 # Sidebar - Configuration
@@ -226,9 +233,13 @@ elif page == "Tester sur un sinistre":
     
     # Bouton Générer
     if st.button("Générer description", type="primary", use_container_width=True):
+        # Format data with DataProcessor before sending to LLM
+        processor = load_processor()
+        formatted_claim = processor.format_for_llm(claim_data)
+        
         with st.spinner("⏳ Génération en cours..."):
             start = time.time()
-            description = generator.generate(claim_data)
+            description = generator.generate(formatted_claim)
             elapsed = time.time() - start
         
         st.success(f"✅ Génération terminée en {elapsed:.1f}s")
@@ -271,13 +282,16 @@ elif page == "Analyse batch":
         
         progress_bar = st.progress(0)
         results = []
+        processor = load_processor()
         
         start_time = time.time()
         
         for i, claim in enumerate(claims_data):
             iter_start = time.time()
             
-            description = generator.generate(claim, max_length=300)
+            # Format data before sending to LLM
+            formatted_claim = processor.format_for_llm(claim)
+            description = generator.generate(formatted_claim, max_length=300)
             iter_time = time.time() - iter_start
             
             results.append({
