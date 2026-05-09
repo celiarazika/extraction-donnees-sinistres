@@ -283,3 +283,30 @@ class DataProcessor:
         
         # Generate semantic report
         return self._build_semantic_report(row_dict)
+    
+    def get_schema_summary(self, df: pd.DataFrame) -> str:
+        """
+        Génère un résumé du schéma de la dataframe pour guider le LLM
+        dans la création de données synthétiques réalistes.
+        """
+        schema = []
+        schema.append("Colonnes requises (séparées par des virgules) : " + ", ".join(df.columns.tolist()))
+        schema.append("\nRègles et exemples de valeurs par colonne :")
+        
+        for col in df.columns:
+            # Ignorer la colonne sémantique qu'on génère pour les résumés
+            if col == 'llm_input': 
+                continue
+                
+            if df[col].dtype == 'object':
+                unique_vals = df[col].dropna().unique()
+                # Limiter à 5 exemples pour ne pas saturer le prompt
+                vals_str = ", ".join(map(str, unique_vals[:5]))
+                schema.append(f"- {col} (Texte) : piocher parmi : {vals_str}")
+            elif pd.api.types.is_numeric_dtype(df[col]):
+                min_val = df[col].min()
+                max_val = df[col].max()
+                # Arrondir pour plus de clarté
+                schema.append(f"- {col} (Numérique) : valeur cohérente entre {min_val:.1f} et {max_val:.1f}")
+                
+        return "\n".join(schema)

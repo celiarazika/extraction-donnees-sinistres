@@ -8,7 +8,7 @@ Démonstration: Pipeline GenAI complet
 - Génération de descriptions détaillées et professionnelles
 - Évaluation de la qualité des résultats
 """
-
+import io
 import os
 import sys
 import time
@@ -119,7 +119,7 @@ st.sidebar.title("⚙️ Configuration")
 
 page = st.sidebar.radio(
     "Sélectionnez une section",
-    ["Accueil", "Tester sur un sinistre", "Analyse batch", "À propos"]
+    ["Accueil","Générer des données", "Tester sur un sinistre", "Analyse batch", "À propos"]
 )
 
 st.sidebar.markdown("---")
@@ -141,7 +141,7 @@ Projet M2 ISFA - Extraction et valorisation de données
 if page == "Accueil":
     st.markdown("""
     <div class="title-container">
-        <h1>Générateur de descriptions de sinistres</h1>
+        <h1>Générateur de sinistres</h1>
         <p><i>Intelligence Artificielle appliquée à l'assurance automobile</i></p>
     </div>
     """, unsafe_allow_html=True)
@@ -159,7 +159,7 @@ if page == "Accueil":
         - Automatiser la rédaction de rapports
         - Augmenter la productivité des experts
         - Standardiser la qualité des descriptions
-        - ⏱Réduire le temps de traitement
+        - Réduire le temps de traitement
         """)
     
     with col2:
@@ -167,8 +167,6 @@ if page == "Accueil":
         df = load_data()
         st.metric("Total sinistres", f"{len(df):,}")
         st.metric("Colonnes", df.shape[1])
-        st.metric("Véhicules uniques", df['model'].nunique())
-        st.metric("Régions couvertes", df['region_code'].nunique())
     
     st.markdown("---")
     
@@ -183,10 +181,76 @@ if page == "Accueil":
     
     with col3:
         st.markdown("### 3️⃣ Génération")
-        st.write("Production de descriptions précises et détaillées")
+        st.write("Production de datasets ou de descriptions précis et détaillés")
     
     st.markdown("---")
-    st.info("👉 **Commencez par** Tester sur un sinistre pour voir le pipeline en action.")
+    st.info("👉 **Commencez par** Générer des données ou Tester sur un sinistre pour voir le pipeline en action.")
+
+# ============================================================
+# NOUVELLE PAGE - GÉNÉRER DES DONNÉES SYNTHÉTIQUES
+# ============================================================
+elif page == "Générer des données":
+    st.markdown("# Génération de données synthétiques")
+    st.write("""
+    Créez un jeu de données de sinistres totalement inventé par l'IA, 
+    mais qui respecte statistiquement le schéma de la base de données réelle.
+    """)
+    
+    generator = load_generator()
+    if generator is None:
+        st.stop()
+        
+    df_original = load_data()
+    processor = load_processor()
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown("### Configuration")
+        n_rows = st.number_input("Nombre de lignes à générer", min_value=1, max_value=50, value=5)
+        generate_btn = st.button("🚀 Générer le CSV", type="primary", use_container_width=True)
+        
+    with col2:
+        st.info(f"Le modèle va se baser sur les {len(df_original.columns)} colonnes de votre jeu de données actuel pour inventer de nouveaux profils cohérents.")
+
+    if generate_btn:
+        with st.spinner(f"⏳ Génération de {n_rows} lignes par le LLM en cours (cela peut prendre quelques instants)..."):
+            start = time.time()
+            
+            # 1. Obtenir le schéma pour le prompt
+            schema_info = processor.get_schema_summary(df_original)
+            
+            # 2. Appeler le LLM
+            raw_csv_output = generator.generate_synthetic_data(schema_info, n_rows)
+            
+            # 3. Nettoyage de sécurité (si le LLM s'entête à mettre des balises markdown)
+            clean_csv = raw_csv_output
+            if clean_csv.startswith("```"):
+                # Enlève la première ligne (ex: ```csv) et la dernière (```)
+                clean_csv = "\n".join(clean_csv.split("\n")[1:-1])
+                
+            elapsed = time.time() - start
+            
+            # 4. Tenter de lire le résultat comme une DataFrame Pandas
+            try:
+                df_synth = pd.read_csv(io.StringIO(clean_csv))
+                st.success(f"✅ Génération réussie en {elapsed:.1f}s !")
+                
+                st.markdown("### Aperçu des données générées")
+                st.dataframe(df_synth, use_container_width=True)
+                
+                # Bouton de téléchargement
+                st.download_button(
+                    label="📥 Télécharger ce dataset au format CSV",
+                    data=clean_csv,
+                    file_name=f"sinistres_synthetiques_ia_{n_rows}_lignes.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            except Exception as e:
+                st.error("❌ Le LLM n'a pas réussi à générer un CSV parfaitement formaté. Voici sa réponse brute :")
+                st.code(raw_csv_output, language="text")
+                st.exception(e)
 
 # ============================================================
 # PAGE 2 - TESTER SUR UN SINISTRE
@@ -337,7 +401,7 @@ elif page == "Analyse batch":
 # ============================================================
 # PAGE 4 - À PROPOS
 # ============================================================
-elif page == "📚 À propos":
+elif page == "À propos":
     st.markdown("# À propos du projet")
     
     col1, col2 = st.columns(2)
