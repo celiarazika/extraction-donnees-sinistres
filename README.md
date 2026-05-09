@@ -1,11 +1,12 @@
 # Extraction et Generation de Descriptions de Sinistres avec LLM
 
 Projet de Deep Learning/IA générative de Master 2 ES
+
 **Données:** https://www.kaggle.com/datasets/litvinenko630/insurance-claims
 
 ## Objectif
 
-Transformer les données structurées de sinistres d'assurance en **descriptions textuelles coherentes et naturelles** en utilisant un Language Model. Au lieu de prédire des valeurs numeriques, le systeme génère du texte explicatif.
+Générer des données de synthèse de sinistres à partir de la base de données réelle jointe pour aider à la tarification et tansformer les données structurées de sinistres d'assurance en descriptions textuelles en utilisant un Language Model. Au lieu de prédire des valeurs numeriques, le systeme génère des données et/ou du texte explicatif.
 
 ## Démarrage 
 
@@ -24,36 +25,13 @@ Ollama fournit un accès local gratuit à des LLMs sans coûts API.
 pip install -r requirements.txt
 ```
 
-### 3. Générer des Descriptions
+### 3. Générer
 
 ```bash
 streamlit run app_llm_v2.py
 ```
 Ouvrez: http://localhost:8501
 
-## Pipeline Technique
-
-```
-Données brutes CSV
-    |
-    v
-Preprocessing (DataProcessor)
-    |
-    v
-Structuration en Dict
-    |
-    v
-Création de Prompt structuré
-    |
-    v
-Ollama API (localhost:11434)
-    |
-    v
-Descriptions générées
-    |
-    v
-Streamlit / CSV / Retour programmmatique
-```
 ## Ressources
 
 - [Ollama Documentation](https://ollama.ai)
