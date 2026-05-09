@@ -310,3 +310,16 @@ class DataProcessor:
                 schema.append(f"- {col} (Numérique) : valeur cohérente entre {min_val:.1f} et {max_val:.1f}")
                 
         return "\n".join(schema)
+    def get_dynamic_examples(self, df: pd.DataFrame, n: int = 3) -> str:
+        """
+        Tire N lignes réelles au hasard du dataframe et les formate 
+        en texte CSV pur (sans l'en-tête) pour guider le LLM.
+        """
+        # On enlève la colonne texte llm_input qui ne sert pas ici
+        df_clean = df.drop(columns=['llm_input'], errors='ignore')
+        
+        # On tire N lignes au hasard
+        sampled_df = df_clean.sample(n=min(n, len(df_clean)))
+        
+        # On convertit en CSV texte (sans index, sans header)
+        return sampled_df.to_csv(index=False, header=False).strip()

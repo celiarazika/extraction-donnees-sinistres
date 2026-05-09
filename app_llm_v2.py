@@ -13,7 +13,10 @@ import os
 import sys
 import time
 from pathlib import Path
-
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+import seaborn as sns
+from scipy import stats
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -62,7 +65,7 @@ st.markdown("""
 # ============================================================
 # Configuration LLM
 # ============================================================
-LLM_MODEL = 'ollama'  # Ollama only - local, free LLM
+LLM_MODEL = 'ollama' 
 
 if LLM_MODEL == 'ollama':
     import requests
@@ -94,7 +97,7 @@ def load_generator():
         generator = create_generator(model_name=LLM_MODEL)
         return generator
     except Exception as e:
-        st.error(f"❌ Erreur LLM: {e}")
+        st.error(f"Erreur LLM: {e}")
         return None
 
 @st.cache_resource
@@ -119,7 +122,7 @@ st.sidebar.title("⚙️ Configuration")
 
 page = st.sidebar.radio(
     "Sélectionnez une section",
-    ["Accueil","Générer des données", "Tester sur un sinistre", "Analyse batch", "À propos"]
+    ["Accueil", "Analyse des données", "Générer des données", "Générer un résumé de sinistre", "Analyse batch", "À propos"]
 )
 
 st.sidebar.markdown("---")
@@ -185,7 +188,125 @@ if page == "Accueil":
     
     st.markdown("---")
     st.info("👉 **Commencez par** Générer des données ou Tester sur un sinistre pour voir le pipeline en action.")
+# ============================================================
+# PAGE - ANALYSE DES DONNÉES (EDA)
+# ============================================================
+elif page == "Analyse des données":
+    st.markdown("# Analyse Exploratoire des Données (EDA)")
+    st.write("Exploration statistique du dataset de sinistres automobiles.")
+    
+    # 1. Chargement des données (Utilise votre fonction en cache existante)
+    df = load_data() 
+    
+    # Couleurs personnalisées issues de votre notebook
+    COLORS = {'sinistre': '#E74C3C', 'non_sinistre': '#2E86AB', 'neutre': '#1F4E79'}
+    
+    # Colonnes numériques (basé sur votre notebook)
+    # Note : Adaptez cette liste si vos colonnes ont des noms légèrement différents dans le df final
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    if 'claim_status' in numeric_cols:
+        numeric_cols.remove('claim_status')
 
+    # Séparation par classe
+    df0 = df[df['claim_status'] == 0]
+    df1 = df[df['claim_status'] == 1]
+    
+    # Métriques globales
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Polices", f"{len(df):,}")
+    col2.metric("Sinistres (1)", f"{len(df1):,}", f"{(len(df1)/len(df)*100):.1f}%")
+    col3.metric("Non-sinistres (0)", f"{len(df0):,}", f"{(len(df0)/len(df)*100):.1f}%")
+    
+    st.markdown("---")
+    
+    # Organisation en onglets pour la lisibilité
+    tab1, tab2, tab3, tab4 = st.tabs(["Statistiques", "Distributions", "Corrélations", "Sélection de variables"])
+    
+    # ONGLET 1 : STATISTIQUES & DÉSÉQUILIBRE
+    with tab1:
+        st.subheader("Distribution de la variable cible")
+        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+        counts = df['claim_status'].value_counts()
+        
+        # Camembert
+        axes[0].pie(counts, labels=['Non-sinistre (0)', 'Sinistre (1)'],
+                    colors=[COLORS['non_sinistre'], COLORS['sinistre']],
+                    autopct='%1.1f%%', startangle=90, wedgeprops={'edgecolor': 'white'})
+        axes[0].set_title("Répartition globale")
+        
+        # Barres
+        bars = axes[1].bar(['Non-sinistre (0)', 'Sinistre (1)'], counts.values,
+                           color=[COLORS['non_sinistre'], COLORS['sinistre']])
+        axes[1].set_title("Effectifs par classe")
+        st.pyplot(fig)  # <- Remplace plt.show() dans Streamlit
+        
+        st.subheader("Statistiques Descriptives")
+        desc = df[numeric_cols].describe().T
+        desc['skewness'] = df[numeric_cols].skew()
+        desc['kurtosis'] = df[numeric_cols].kurtosis()
+        st.dataframe(desc[['mean', 'std', 'min', '25%', '50%', '75%', 'max', 'skewness', 'kurtosis']].round(2), use_container_width=True)
+
+    # ONGLET 2 : DISTRIBUTIONS
+    with tab2:
+        st.subheader("Distributions des variables clés")
+        # Sélection de quelques variables clés présentes dans votre set
+        key_vars = [col for col in ['customer_age', 'vehicle_age', 'region_density'] if col in df.columns]
+        
+        if key_vars:
+            fig, axes = plt.subplots(1, len(key_vars), figsize=(5*len(key_vars), 4))
+            if len(key_vars) == 1: axes = [axes] # Sécurité si une seule variable
+            
+            for i, col in enumerate(key_vars):
+                axes[i].hist(df1[col].dropna(), bins=30, alpha=0.6, color=COLORS['sinistre'], label='Sinistre', density=True)
+                axes[i].hist(df0[col].dropna(), bins=30, alpha=0.4, color=COLORS['non_sinistre'], label='Non-sinistre', density=True)
+                axes[i].set_title(col)
+                axes[i].legend()
+            st.pyplot(fig)
+            
+        st.info("💡 L'analyse révèle des valeurs aberrantes naturelles (outliers) comme des véhicules très anciens. Ils sont conservés car pertinents actuariellement.")
+
+    # ONGLET 3 : CORRÉLATIONS
+    with tab3:
+        st.subheader("Matrice de corrélations")
+        corr_matrix = df[numeric_cols + ['claim_status']].corr()
+        
+        fig, ax = plt.subplots(figsize=(10, 8))
+        mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
+        sns.heatmap(corr_matrix, mask=mask, annot=False, cmap='RdBu_r', center=0, vmin=-1, vmax=1, ax=ax)
+        st.pyplot(fig)
+        
+        st.subheader("Corrélation avec les sinistres (claim_status)")
+        corr_target = corr_matrix['claim_status'].drop('claim_status').abs().sort_values(ascending=True)
+        
+        fig, ax = plt.subplots(figsize=(8, max(4, len(corr_target)*0.3)))
+        colors_bar = [COLORS['sinistre'] if v > 0.05 else COLORS['non_sinistre'] for v in corr_target]
+        ax.barh(corr_target.index, corr_target.values, color=colors_bar)
+        ax.axvline(x=0.05, color='gray', linestyle='--')
+        ax.set_xlabel("Corrélation absolue")
+        st.pyplot(fig)
+
+    # ONGLET 4 : SÉLECTION DE VARIABLES
+    with tab4:
+        st.subheader("Pertinence des variables (Pearson & Spearman)")
+        
+        # Calcul Pearson et Spearman
+        corr_pearson = df[numeric_cols].corrwith(df['claim_status']).abs()
+        
+        spearman_data = []
+        for col in numeric_cols:
+            rho, pval = stats.spearmanr(df[col].fillna(0), df['claim_status'])
+            spearman_data.append({'Variable': col, 'Pearson_abs': corr_pearson[col], 'Spearman_rho': abs(rho), 'P_value': pval})
+            
+        df_selection = pd.DataFrame(spearman_data).sort_values('Pearson_abs', ascending=False)
+        df_selection['Significatif'] = df_selection['P_value'] < 0.05
+        
+        st.dataframe(df_selection.style.highlight_max(subset=['Pearson_abs', 'Spearman_rho'], color='lightgreen'), use_container_width=True)
+        
+        st.success("""
+        **Conclusions de l'EDA :**
+        - Faibles corrélations linéaires globales (<0.10) indiquant des relations complexes.
+        - Le déséquilibre sévère (1 sinistre pour 14 non-sinistres) justifie notre approche de **génération de données synthétiques** par IA pour rééquilibrer le dataset.
+        """)
 # ============================================================
 # NOUVELLE PAGE - GÉNÉRER DES DONNÉES SYNTHÉTIQUES
 # ============================================================
@@ -214,32 +335,33 @@ elif page == "Générer des données":
         st.info(f"Le modèle va se baser sur les {len(df_original.columns)} colonnes de votre jeu de données actuel pour inventer de nouveaux profils cohérents.")
 
     if generate_btn:
-        with st.spinner(f"⏳ Génération de {n_rows} lignes par le LLM en cours (cela peut prendre quelques instants)..."):
+        with st.spinner(f"⏳ Génération de {n_rows} lignes par le LLM en cours..."):
             start = time.time()
             
-            # 1. Obtenir le schéma pour le prompt
-            schema_info = processor.get_schema_summary(df_original)
+            # 1. On filtre pour ne garder QUE les sinistres réels
+            df_sinistres = df_original[df_original['claim_status'] == 1]
             
-            # 2. Appeler le LLM
-            raw_csv_output = generator.generate_synthetic_data(schema_info, n_rows)
+            # 2. Le schéma extrait sera donc mathématiquement exact pour les sinistres
+            schema_info = processor.get_schema_summary(df_sinistres)
             
-            # 3. Nettoyage de sécurité (si le LLM s'entête à mettre des balises markdown)
+            # 3. On tire 4 vrais exemples au hasard parmi les sinistres
+            dynamic_examples = processor.get_dynamic_examples(df_sinistres, n=4)
+            # ------------------------
+            
+            # 4. Appeler le LLM avec ces nouvelles informations
+            raw_csv_output = generator.generate_synthetic_data(schema_info, dynamic_examples, n_rows)
+            
             clean_csv = raw_csv_output
             if clean_csv.startswith("```"):
-                # Enlève la première ligne (ex: ```csv) et la dernière (```)
                 clean_csv = "\n".join(clean_csv.split("\n")[1:-1])
                 
             elapsed = time.time() - start
             
-            # 4. Tenter de lire le résultat comme une DataFrame Pandas
             try:
                 df_synth = pd.read_csv(io.StringIO(clean_csv))
-                st.success(f"✅ Génération réussie en {elapsed:.1f}s !")
-                
-                st.markdown("### Aperçu des données générées")
+                st.success(f"✅ Génération de profils 'Sinistrés' réussie en {elapsed:.1f}s !")
                 st.dataframe(df_synth, use_container_width=True)
                 
-                # Bouton de téléchargement
                 st.download_button(
                     label="📥 Télécharger ce dataset au format CSV",
                     data=clean_csv,
@@ -248,14 +370,14 @@ elif page == "Générer des données":
                     use_container_width=True
                 )
             except Exception as e:
-                st.error("❌ Le LLM n'a pas réussi à générer un CSV parfaitement formaté. Voici sa réponse brute :")
+                st.error("Le LLM a échoué à générer un CSV. Réponse brute :")
                 st.code(raw_csv_output, language="text")
                 st.exception(e)
 
 # ============================================================
 # PAGE 2 - TESTER SUR UN SINISTRE
 # ============================================================
-elif page == "Tester sur un sinistre":
+elif page == "Générer un résumé de sinistre":
     st.markdown("# Génération interactive")
     st.write("Sélectionnez ou créez un sinistre pour générer une description")
     
@@ -409,7 +531,7 @@ elif page == "À propos":
     with col1:
         st.markdown("## 🎓 Contexte académique")
         st.write("""
-        **Projet M2 - ISFA**
+        **Projet M2 ES - ISFA**
         Celia IMAKHLOUFEN (DSI), Fatoumata Binta DIALLO (DARM), Siderlin MOUPOLO (EQUADE)
         """)
         
@@ -448,7 +570,7 @@ elif page == "À propos":
     
     st.markdown("## 🤖 Modèle IA utilisé")
     st.write(f"""
-    **Modèle**: Mistral-7B (via Ollama)
+    **Modèle**: phi 3.5 (via Ollama)
     
     - Modèle open-source, licence Apache 2.0
     - 7 milliards de paramètres

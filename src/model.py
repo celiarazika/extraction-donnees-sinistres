@@ -1,6 +1,5 @@
 """
 LLM-based text generation for insurance claims.
-Generates descriptions of insurance claims from structured data.
 """
 
 import os
@@ -9,7 +8,7 @@ import numpy as np
 
 
 class ClaimsLLMGenerator:
-    """Generates claim descriptions using a Language Model."""
+    """Generates claim using a Language Model."""
     
     def __init__(self, model_name: str = "ollama"):
         """
@@ -83,7 +82,7 @@ Rédige une description professionnelle de 50-100 mots basée UNIQUEMENT sur les
         prompt = self.create_prompt(claim_data)
         
         response = self.client.chat.completions.create(
-            model="phi3.5",  # Changed from mistral for speed (2-3x faster)
+            model="llama3.2:1b",  # Changed from mistral for speed (2-3x faster)
             messages=[
                 {"role": "system", "content": "You are a senior insurance claims expert with 20 years of experience. Provide detailed, accurate, and professional descriptions of insurance claims including all relevant elements for expertise."},
                 {"role": "user", "content": prompt}
@@ -113,44 +112,47 @@ Rédige une description professionnelle de 50-100 mots basée UNIQUEMENT sur les
         print(f"✅ Generated {len(descriptions)} descriptions")
         return descriptions
     
-    def generate_synthetic_data(self, schema_context: str, num_rows: int) -> str:
-            """
-            Demande au LLM de générer N lignes de CSV synthétique en utilisant
-            une structure stricte par l'exemple (Few-Shot Prompting).
-            """
-            
-            # L'en-tête exact basé sur votre base de données
-            columns = "policy_id,subscription_length,vehicle_age,customer_age,region_code,region_density,segment,model,fuel_type,max_torque,max_power,engine_type,airbags,is_esc,is_adjustable_steering,is_tpms,is_parking_sensors,is_parking_camera,rear_brakes_type,displacement,cylinder,transmission_type,steering_type,turning_radius,length,width,gross_weight,is_front_fog_lights,is_rear_window_wiper,is_rear_window_washer,is_rear_window_defogger,is_brake_assist,is_power_door_locks,is_central_locking,is_power_steering,is_driver_seat_height_adjustable,is_day_night_rear_view_mirror,is_ecw,is_speed_alert,ncap_rating,claim_status"
-            
-            # Un exemple parfait pour forcer le modèle à comprendre le format attendu
-            example_row="POL045360,9.3,1.2,41,C8,8794,C2,M4,Diesel,250Nm@2750rpm,113.45bhp@4000rpm,1.5 L U2 CRDi,6,Yes,Yes,Yes,Yes,Yes,Disc,1493,4,Automatic,Power,5.2,4300,1790,1720,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes,No,Yes,Yes,3,0"
-            prompt = f"""Tu es un script automatisé de génération de données. Ta SEULE fonction est d'écrire du texte au format CSV.
-    Tu dois générer EXACTEMENT {num_rows} lignes de données de sinistres automobiles.
+    def generate_synthetic_data(self, schema_context: str, dynamic_examples: str, num_rows: int) -> str:
+        """
+        Génère du CSV en utilisant du Dynamic Few-Shot Prompting.
+        """
+        columns = "policy_id,subscription_length,vehicle_age,customer_age,region_code,region_density,segment,model,fuel_type,max_torque,max_power,engine_type,airbags,is_esc,is_adjustable_steering,is_tpms,is_parking_sensors,is_parking_camera,rear_brakes_type,displacement,cylinder,transmission_type,steering_type,turning_radius,length,width,gross_weight,is_front_fog_lights,is_rear_window_wiper,is_rear_window_washer,is_rear_window_defogger,is_brake_assist,is_power_door_locks,is_central_locking,is_power_steering,is_driver_seat_height_adjustable,is_day_night_rear_view_mirror,is_ecw,is_speed_alert,ncap_rating,claim_status"
 
-    RÈGLES ABSOLUES ET STRICTES :
-    1. La toute première ligne de ta réponse DOIT être cet en-tête exact :
-    {columns}
-    2. Les lignes suivantes doivent ressembler à cet exemple, mais avec des valeurs inventées et réalistes :
-    {example_row}
-    3. N'écris AUCUN texte avant. N'écris AUCUN texte après.
-    4. Ne mets pas de balises comme ```csv ou ```.
-    5. Juste les données brutes séparées par des virgules.
+        prompt = f"""Tu es un générateur de données synthétiques expert. Ta SEULE fonction est d'écrire du texte au format CSV pur.
 
-    Génère maintenant l'en-tête et les {num_rows} lignes :"""
+OBJECTIF : Générer EXACTEMENT {num_rows} lignes de données de sinistres automobiles pour des dossiers AVÉRÉS (claim_status doit TOUJOURS être égal à 1).
 
-            # Appel au LLM
-            response = self.client.chat.completions.create(
-                model="phi3.5", # Assurez-vous d'utiliser le modèle que vous avez pull (ex: llama3.2:1b)
-                messages=[
-                    {"role": "system", "content": "Tu es un terminal de commande. Tu ne réponds qu'avec du format CSV pur. Aucune phrase, aucune politesse."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3, # Baisé à 0.3 pour éviter qu'il ne devienne "créatif" et n'hallucine des textes
-                max_tokens=1500  # Limite pour éviter qu'il ne boucle à l'infini
-            )
-            
-            return response.choices[0].message.content.strip()
+CONTEXTE STATISTIQUE (Basé uniquement sur les sinistres réels) :
+{schema_context}
 
+RÈGLES DE COHÉRENCE MÉTIER OBLIGATOIRES :
+1. 'policy_id' doit commencer par "POL" suivi de 6 chiffres uniques inventés (ex: POL993821).
+2. 'claim_status' doit être STRICTEMENT ÉGAL À 1 pour toutes les lignes.
+3. Inspire-toi profondément des corrélations visibles dans les exemples fournis ci-dessous pour créer de nouveaux profils réalistes.
+
+FORMAT ATTENDU (Voici des exemples de VRAIS sinistres tirés de la base, utilise-les comme modèles pour la structure et la variance des données) :
+{columns}
+{dynamic_examples}
+
+INSTRUCTIONS FINALES :
+- Renvoie UNIQUEMENT l'en-tête suivi de tes {num_rows} nouvelles lignes générées.
+- Ne copie pas exactement les exemples, invente de nouvelles combinaisons logiques.
+- Ne mets AUCUNE balise markdown (pas de ```csv).
+"""
+
+        response = self.client.chat.completions.create(
+            model="mistral", # ou le modèle que vous utilisez
+            messages=[
+                {"role": "system", "content": "Tu es un terminal qui produit exclusivement du CSV valide. Aucun texte additionnel n'est toléré."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.6, 
+            max_tokens=2500,
+            top_p=0.9
+        )
+        
+        return response.choices[0].message.content.strip()
+    
 def create_generator(model_name: str = "ollama") -> ClaimsLLMGenerator:
     """Factory function to create an LLM generator (Ollama only)."""
     return ClaimsLLMGenerator(model_name)
