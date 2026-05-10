@@ -121,13 +121,13 @@ llm_ok   = df_llm is not None
 with st.sidebar:
     st.markdown("## 🚗 Navigation")
     page = st.radio("Menu", [
-        "🏠 Accueil",
-        "📊 Exploration des données",
-        "🤖 Génération synthétique",
-        "🧠 Descriptions LLM",
-        "📈 Évaluation du modèle",
-        "🔮 Prédiction individuelle",
-        "⚠️ Limites et défis"
+        "Accueil",
+        "Exploration des données",
+        "Génération synthétique",
+        "Descriptions LLM",
+        "Évaluation du modèle",
+        "Prédiction individuelle",
+        "Limites et défis"
     ])
     st.markdown("---")
     st.markdown("**Projet ISFA 2025-2026**")
@@ -143,7 +143,7 @@ with st.sidebar:
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1 — ACCUEIL
 # ══════════════════════════════════════════════════════════════════════════════
-if page == "🏠 Accueil":
+if page == "Accueil":
     st.markdown('<div class="main-title">🚗 Génération de Données Synthétiques de Sinistres</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-title">Projet IA & Assurance — ISFA 2025-2026</div>', unsafe_allow_html=True)
     st.markdown("---")
@@ -191,7 +191,7 @@ if page == "🏠 Accueil":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 2 — EXPLORATION DES DONNÉES
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📊 Exploration des données":
+elif page == "Exploration des données":
     st.markdown('<div class="main-title">📊 Exploration des données</div>', unsafe_allow_html=True)
     if not data_ok: st.error("Dataset non disponible."); st.stop()
 
@@ -256,7 +256,7 @@ elif page == "📊 Exploration des données":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — GÉNÉRATION SYNTHÉTIQUE
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🤖 Génération synthétique":
+elif page == "Génération synthétique":
     st.markdown('<div class="main-title">🤖 Génération de données synthétiques</div>', unsafe_allow_html=True)
 
     if ctgan_ok or tvae_ok:
@@ -389,7 +389,7 @@ elif page == "🤖 Génération synthétique":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 4 — DESCRIPTIONS LLM
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🧠 Descriptions LLM":
+elif page == "Descriptions LLM":
     st.markdown('<div class="main-title">🧠 Descriptions LLM — Ollama/phi3.5</div>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
@@ -462,8 +462,8 @@ elif page == "🧠 Descriptions LLM":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 5 — ÉVALUATION
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📈 Évaluation du modèle":
-    st.markdown('<div class="main-title">📈 Évaluation du modèle</div>', unsafe_allow_html=True)
+elif page == "Évaluation du modèle":
+    st.markdown('<div class="main-title">Évaluation du modèle</div>', unsafe_allow_html=True)
     if not model_ok: st.error("Résultats non disponibles."); st.stop()
     st.markdown('<div class="success-box">✅ Étapes 3 et 4 terminées</div>', unsafe_allow_html=True)
     st.markdown("---")
@@ -578,8 +578,8 @@ elif page == "📈 Évaluation du modèle":
             st.dataframe(comp, use_container_width=True)
             st.markdown('<div class="warning-box">⚠️ Modèle réduit perd -1.62% AUC mais gagne en stabilité</div>', unsafe_allow_html=True)
 
-elif page == "⚠️ Limites et défis":
-    st.markdown('<div class="main-title">⚠️ Limites Techniques et Défis du Projet</div>', unsafe_allow_html=True)
+elif page == "Limites et défis":
+    st.markdown('<div class="main-title">Limites Techniques et Défis du Projet</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-title">Analyse critique des constatations et limitations observées</div>', unsafe_allow_html=True)
     st.markdown("---")
 
@@ -686,7 +686,7 @@ elif page == "⚠️ Limites et défis":
             - Ollama/phi3.5: ~2-3 secondes par description
             - 10 descriptions: ~25 secondes
             - 1000 descriptions: **~40 minutes**
-            - 1 million descriptions: **28 jours** ⚠️
+            - 1 million descriptions: **28 jours** 
             
             **Problème:** Inacceptable pour production real-time
             
@@ -858,8 +858,8 @@ elif page == "⚠️ Limites et défis":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 6 — PRÉDICTION INDIVIDUELLE
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🔮 Prédiction individuelle":
-    st.markdown('<div class="main-title">🔮 Prédiction du risque sinistre</div>', unsafe_allow_html=True)
+elif page == "Prédiction individuelle":
+    st.markdown('<div class="main-title">Prédiction du risque sinistre</div>', unsafe_allow_html=True)
 
     xgb_baseline = load_model('outputs/models/xgb_baseline.pkl')
     if xgb_baseline is None or df_pre is None:
