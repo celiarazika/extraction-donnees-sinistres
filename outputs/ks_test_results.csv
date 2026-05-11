@@ -1,0 +1,11 @@
+variable,ks_ctgan,p_ctgan,ks_tvae,p_tvae
+subscription_length,0.8700640341515475,0.0,0.8723334044823906,0.0
+vehicle_age,0.5134,6.37e-322,0.6268,0.0
+customer_age,1.0,0.0,1.0,0.0
+region_density,1.0,0.0,1.0,0.0
+displacement,1.0,0.0,1.0,0.0
+cylinder,1.0,0.0,1.0,0.0
+gross_weight,1.0,0.0,1.0,0.0
+torque_nm,1.0,0.0,1.0,0.0
+power_bhp,1.0,0.0,1.0,0.0
+airbags,0.9805229455709712,0.0,0.9805229455709712,0.0
