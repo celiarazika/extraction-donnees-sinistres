@@ -121,28 +121,23 @@ llm_ok   = df_llm is not None
 with st.sidebar:
     st.markdown("## 🚗 Navigation")
     page = st.radio("Menu", [
-        "🏠 Accueil",
-        "📊 Exploration des données",
-        "🤖 Génération synthétique",
-        "🧠 Descriptions LLM",
-        "📈 Évaluation du modèle",
-        "🔮 Prédiction individuelle"
+        "Accueil",
+        "Exploration des données",
+        "Génération synthétique",
+        "Évaluation du modèle",
+        "Descriptions LLM",
+        "Prédiction individuelle",
+        "Limites et défis"
     ])
     st.markdown("---")
-    st.markdown("**Projet ISFA 2025-2026**")
+    st.markdown("**Projet M2 ES ISFA 2025-2026**")
     st.markdown("Génération de données synthétiques de sinistres")
     st.markdown("---")
-    if data_ok: st.success(f"✅ Dataset : {df.shape[0]:,} polices")
-    else: st.error("❌ Dataset non chargé")
-    if model_ok: st.success("✅ Modèles chargés")
-    else: st.warning("⚠️ Lancer etape3_modelisation.py")
-    if llm_ok: st.success("✅ Descriptions LLM disponibles")
-    else: st.warning("⚠️ Lancer etape3_modelisation.py")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1 — ACCUEIL
 # ══════════════════════════════════════════════════════════════════════════════
-if page == "🏠 Accueil":
+if page == "Accueil":
     st.markdown('<div class="main-title">🚗 Génération de Données Synthétiques de Sinistres</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-title">Projet IA & Assurance — ISFA 2025-2026</div>', unsafe_allow_html=True)
     st.markdown("---")
@@ -162,20 +157,7 @@ if page == "🏠 Accueil":
         st.markdown("""
         Les données de sinistres sont naturellement **déséquilibrées** : seulement **6,4%** des polices génèrent un sinistre.
 
-        **Solution :** Deux approches complémentaires :
-        - **CTGAN/TVAE** → génération de données tabulaires synthétiques
-        - **Ollama/phi3.5** → génération de descriptions textuelles professionnelles
-        """)
-    with col_right:
-        st.markdown('<div class="section-header">🗂️ Pipeline</div>', unsafe_allow_html=True)
-        st.markdown("""
-        | Étape | Description | Statut |
-        |-------|-------------|--------|
-        | 1 | Data Acquisition & Prétraitement | ✅ |
-        | 2 | Analyse Exploratoire (EDA) | ✅ |
-        | 3 | Modélisation CTGAN/TVAE + LLM | ✅ |
-        | 4 | Évaluation & Sensibilité | ✅ |
-        | 5 | Limites & Perspectives | ⏳ |
+        **Solution :** **CTGAN/TVAE** → génération de données tabulaires synthétiques
         """)
 
     if model_ok:
@@ -190,7 +172,7 @@ if page == "🏠 Accueil":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 2 — EXPLORATION DES DONNÉES
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📊 Exploration des données":
+elif page == "Exploration des données":
     st.markdown('<div class="main-title">📊 Exploration des données</div>', unsafe_allow_html=True)
     if not data_ok: st.error("Dataset non disponible."); st.stop()
 
@@ -255,7 +237,7 @@ elif page == "📊 Exploration des données":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — GÉNÉRATION SYNTHÉTIQUE
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🤖 Génération synthétique":
+elif page == "Génération synthétique":
     st.markdown('<div class="main-title">🤖 Génération de données synthétiques</div>', unsafe_allow_html=True)
 
     if ctgan_ok or tvae_ok:
@@ -388,7 +370,7 @@ elif page == "🤖 Génération synthétique":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 4 — DESCRIPTIONS LLM
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🧠 Descriptions LLM":
+elif page == "Descriptions LLM":
     st.markdown('<div class="main-title">🧠 Descriptions LLM — Ollama/phi3.5</div>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
@@ -461,8 +443,8 @@ elif page == "🧠 Descriptions LLM":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 5 — ÉVALUATION
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📈 Évaluation du modèle":
-    st.markdown('<div class="main-title">📈 Évaluation du modèle</div>', unsafe_allow_html=True)
+elif page == "Évaluation du modèle":
+    st.markdown('<div class="main-title">Évaluation du modèle</div>', unsafe_allow_html=True)
     if not model_ok: st.error("Résultats non disponibles."); st.stop()
     st.markdown('<div class="success-box">✅ Étapes 3 et 4 terminées</div>', unsafe_allow_html=True)
     st.markdown("---")
@@ -575,13 +557,79 @@ elif page == "📈 Évaluation du modèle":
                 'Recall': [0.5240, 0.4947, -0.0293]
             })
             st.dataframe(comp, use_container_width=True)
-            st.markdown('<div class="success-box">✅ Perte AUC de 0.0162 seulement — modèle réduit viable</div>', unsafe_allow_html=True)
+            st.markdown('<div class="warning-box">⚠️ Modèle réduit perd -1.62% AUC mais gagne en stabilité</div>', unsafe_allow_html=True)
+
+elif page == "Limites et défis":
+    st.markdown('<div class="main-title">Limites Techniques et Défis du Projet</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">Analyse critique des constatations et limitations observées</div>', unsafe_allow_html=True)
+    st.markdown("---")
+
+    tab = st.tabs(["Limites"])[0]
+
+    with tab:
+        st.markdown('<div class="section-header">1️⃣ Déséquilibre de classes extrême</div>', unsafe_allow_html=True)
+        st.markdown("""
+        - **Ratio 1:14** : un sinistre pour quatorze non-sinistres
+        - Seulement **6,4%** de sinistres dans le jeu de données
+        - Effet direct : le modèle est attiré vers la classe majoritaire
+        - Conséquence métier : le recall reste limité malgré un AUC correct 
+        """)
+
+        st.markdown('<div class="section-header">2️⃣ Passage à l\'échelle des données</div>', unsafe_allow_html=True)
+        st.markdown("""
+        - Le jeu de données reste **modeste** pour des approches profondes de génération tabulaire
+        - Les générateurs et l'évaluation deviennent plus coûteux à mesure que le volume augmente
+        - Le passage à l'échelle demanderait davantage de données réelles et une infrastructure plus robuste
+        - En l'état, le pipeline est surtout démonstratif
+        """)
+
+        st.markdown('<div class="section-header">3️⃣ Surapprentissage XGBoost</div>', unsafe_allow_html=True)
+        st.markdown("""
+        - Le baseline (AUC = 0.6454) dépasse les variantes enrichies avec données synthétiques (AUC(CTGAN)=0.5990)
+        - Le modèle semble sensible aux écarts de distribution introduits par les synthétiques
+        - Cela suggère une augmentation de données potentiellement nuisible
+        """)
+
+        st.markdown('<div class="section-header">4️⃣ Coûts de calcul</div>', unsafe_allow_html=True)
+        st.markdown("""
+        **Entraînement actuel (CPU local):**
+        - CTGAN 300 epochs: ~10 minutes
+        - TVAE 300 epochs: ~15 minutes
+        - XGBoost 4 modèles: ~5 minutes
+        - **Total par run: ~30 minutes**
+        """)
+
+        st.markdown('<div class="section-header">5️⃣ Biais discriminatoire</div>', unsafe_allow_html=True)
+        st.markdown("""
+        - Les métriques globales peuvent masquer des écarts selon les groupes de population
+        - Le modèle peut sur-prédire le risque pour certains segments et sous-prédire pour d'autres
+        - C'est un point critique pour une utilisation assurance conforme et équitable
+        """)
+
+        st.markdown("---")
+        st.markdown('<div class="section-header"> Plan d\'action (court, moyen, long terme)</div>', unsafe_allow_html=True)
+        st.markdown("""
+        ### Court terme
+        1. **Déséquilibre de classes extrême** : affiner le seuil de décision selon le coût métier
+        2. **Surapprentissage XGBoost** : renforcer la validation croisée et la régularisation
+        3. **Biais discriminatoire** : lancer un audit fairness de base par segments
+
+        ### Moyen terme
+        1. **Passage à l'échelle des données** : enrichir le volume et la diversité des données réelles
+        2. **Coûts de calcul** : optimiser le pipeline d'entraînement et de réentraînement
+        3. **Surapprentissage XGBoost** : stabiliser l'apport des données synthétiques avant augmentation massive
+
+        ### Long terme
+        1. **Passage à l'échelle des données** : industrialiser l'ingestion et la gouvernance des données
+        2. **Coûts de calcul** : migrer vers une infrastructure scalable avec suivi coût-performance
+        3. **Biais discriminatoire** : intégrer un monitoring continu de fairness en production
+        """)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 6 — PRÉDICTION INDIVIDUELLE
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🔮 Prédiction individuelle":
-    st.markdown('<div class="main-title">🔮 Prédiction du risque sinistre</div>', unsafe_allow_html=True)
+elif page == "Prédiction individuelle":
+    st.markdown('<div class="main-title">Prédiction du risque sinistre</div>', unsafe_allow_html=True)
 
     xgb_baseline = load_model('outputs/models/xgb_baseline.pkl')
     if xgb_baseline is None or df_pre is None:
