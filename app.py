@@ -124,21 +124,15 @@ with st.sidebar:
         "Accueil",
         "Exploration des données",
         "Génération synthétique",
-        "Descriptions LLM",
         "Évaluation du modèle",
+        "Descriptions LLM",
         "Prédiction individuelle",
         "Limites et défis"
     ])
     st.markdown("---")
-    st.markdown("**Projet ISFA 2025-2026**")
+    st.markdown("**Projet M2 ES ISFA 2025-2026**")
     st.markdown("Génération de données synthétiques de sinistres")
     st.markdown("---")
-    if data_ok: st.success(f"✅ Dataset : {df.shape[0]:,} polices")
-    else: st.error("❌ Dataset non chargé")
-    if model_ok: st.success("✅ Modèles chargés")
-    else: st.warning("⚠️ Lancer etape3_modelisation.py")
-    if llm_ok: st.success("✅ Descriptions LLM disponibles")
-    else: st.warning("⚠️ Lancer etape3_modelisation.py")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1 — ACCUEIL
@@ -163,20 +157,7 @@ if page == "Accueil":
         st.markdown("""
         Les données de sinistres sont naturellement **déséquilibrées** : seulement **6,4%** des polices génèrent un sinistre.
 
-        **Solution :** Deux approches complémentaires :
-        - **CTGAN/TVAE** → génération de données tabulaires synthétiques
-        - **Ollama/phi3.5** → génération de descriptions textuelles professionnelles
-        """)
-    with col_right:
-        st.markdown('<div class="section-header">🗂️ Pipeline</div>', unsafe_allow_html=True)
-        st.markdown("""
-        | Étape | Description | Statut |
-        |-------|-------------|--------|
-        | 1 | Data Acquisition & Prétraitement | ✅ |
-        | 2 | Analyse Exploratoire (EDA) | ✅ |
-        | 3 | Modélisation CTGAN/TVAE + LLM | ✅ |
-        | 4 | Évaluation & Sensibilité | ✅ |
-        | 5 | Limites & Perspectives | ⏳ |
+        **Solution :** **CTGAN/TVAE** → génération de données tabulaires synthétiques
         """)
 
     if model_ok:
@@ -583,277 +564,66 @@ elif page == "Limites et défis":
     st.markdown('<div class="sub-title">Analyse critique des constatations et limitations observées</div>', unsafe_allow_html=True)
     st.markdown("---")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["📊 Données", "🤖 Modèles", "⚙️ Infrastructure", "🔒 Sécurité"])
+    tab = st.tabs(["Limites"])[0]
 
-    with tab1:
-        st.markdown('<div class="section-header">1️⃣ Qualité et Biais des Données</div>', unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown('<div class="danger-box"><strong>Déséquilibre de classes extrême</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            - **Ratio 1:14** (1 sinistre pour 14 non-sinistres)
-            - Seulement **6.4%** de sinistres (3 746 sur 58 592)
-            - **Impacts:** 
-              - Biais du modèle vers la majorité (non-sinistres)
-              - Metrics de classification inadaptées (accuracy 93% = inutile)
-              - Recall faible malgré tout (52.4% baseline)
-            """)
-            
-            st.markdown('<div class="warning-box"><strong>Données incomplètes/manquantes</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            - **Valeurs NULL détectées** lors du prétraitement
-            - **Outliers conservés** = peut biaiser les générateurs
-            - **Typage imprécis** : colonnes texte convertibles en numérique
-            """)
-        
-        with col2:
-            st.markdown('<div class="danger-box"><strong>Contexte métier manquant</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            - Les données brutes **n'expliquent pas les sinistres** (corrélations faibles)
-            - Variables manquantes critiques:
-              - Historique de sinistres du client
-              - Infractions au code de la route
-              - Région géographique exacte
-              - Conditions météo/saisonnalité
-            - **Conséquence:** Générateurs entraînés sur signaux faibles
-            """)
-            
-            st.markdown('<div class="info-box"><strong>Passage à l\'échelle des données</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            - Dataset de **58K polices** = modeste pour Deep Learning
-            - Real-world: **millions de polices** requis
-            - **Coût de stockage:** 13 GB (brut) → 1 GB (encodé)
-            """)
+    with tab:
+        st.markdown('<div class="section-header">1️⃣ Déséquilibre de classes extrême</div>', unsafe_allow_html=True)
+        st.markdown("""
+        - **Ratio 1:14** : un sinistre pour quatorze non-sinistres
+        - Seulement **6,4%** de sinistres dans le jeu de données
+        - Effet direct : le modèle est attiré vers la classe majoritaire
+        - Conséquence métier : le recall reste limité malgré un AUC correct 
+        """)
 
-    with tab2:
-        st.markdown('<div class="section-header">2️⃣ Surapprentissage et Performance des Modèles</div>', unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown('<div class="danger-box"><strong>Synthétiques de mauvaise qualité</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            **Score de Silhouette:**
-            - CTGAN: 0.7437 | TVAE: 0.7544
-            - **Seuil acceptable: > 0.5** (ok mais limite)
-            - **Problème détecté:** écarts d'échelle entre réelles et synthétiques
-            
-            **Discriminateur 100% accurate:**
-            - Le classifieur distingue parfaitement réel vs synthétique
-            - = synthétiques **trop éloignés** de la distribution réelle
-            - = peu utiles pour augmentation robuste
-            """)
-            
-            st.markdown('<div class="warning-box"><strong>Test Train-Synthetic-Real (TSTR)</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            - CTGAN seul: AUC = 0.5156 (quasi-aléatoire)
-            - TVAE seul: AUC = 0.5540 (quasi-aléatoire)
-            - **= synthétiques NE REPRÉSENTENT PAS les vrais sinistres**
-            """)
-        
-        with col2:
-            st.markdown('<div class="warning-box"><strong>Surapprentissage XGBoost</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            **Observations:**
-            - Baseline AUC: 0.6454 (bon)
-            - + CTGAN AUC: 0.5990 (**pire!**)
-            - + TVAE AUC: 0.5956 (**pire!**)
-            
-            **Causes probables:**
-            1. Synthétiques trop divergents (confondent le classifieur)
-            2. Sur-régularisation du classifieur
-            3. Dérive de distribution non corrigée
-            
-            **Impact métier:** Augmentation de données nuisible
-            """)
-            
-            st.markdown('<div class="danger-box"><strong>Généralisation fragile</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            - **Test set: 11K polices** = petit
-            - Modèle réduit (5 vars vs 93) perd -1.6% AUC
-            - = Performance instable aux changements de données
-            - Pas de test sur **données futures** (temporal validation)
-            """)
+        st.markdown('<div class="section-header">2️⃣ Passage à l\'échelle des données</div>', unsafe_allow_html=True)
+        st.markdown("""
+        - Le jeu de données reste **modeste** pour des approches profondes de génération tabulaire
+        - Les générateurs et l'évaluation deviennent plus coûteux à mesure que le volume augmente
+        - Le passage à l'échelle demanderait davantage de données réelles et une infrastructure plus robuste
+        - En l'état, le pipeline est surtout démonstratif
+        """)
 
-    with tab3:
-        st.markdown('<div class="section-header">3️⃣ Coûts, Latence et Passage à l\'Échelle</div>', unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown('<div class="warning-box"><strong>Latence de génération LLM</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            **Temps d'exécution observé:**
-            - Ollama/phi3.5: ~2-3 secondes par description
-            - 10 descriptions: ~25 secondes
-            - 1000 descriptions: **~40 minutes**
-            - 1 million descriptions: **28 jours** 
-            
-            **Problème:** Inacceptable pour production real-time
-            
-            **Solutions partielles:**
-            - Batch processing (déjà implémenté)
-            - Modèle réduit + GPU
-            - API cloud (Claude/GPT) mais coûteux
-            """)
-            
-            st.markdown('<div class="warning-box"><strong>Stockage des modèles</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            **Empreinte disque:**
-            - CTGAN model: 5.3 MB
-            - TVAE model: 2.1 MB
-            - XGBoost models (4x): ~3.8 MB
-            - **Total: ~12 MB** (acceptable)
-            
-            **Mais à l'échelle:**
-            - Retraînement quotidien → versioning complexe
-            - Multimodèles (par région/client) → explosion
-            """)
-        
-        with col2:
-            st.markdown('<div class="danger-box"><strong>Coûts de calcul</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            **Entraînement actuel (CPU local):**
-            - CTGAN 300 epochs: ~30 minutes
-            - TVAE 300 epochs: ~30 minutes
-            - XGBoost 4 modèles: ~5 minutes
-            - **Total par run: ~65 minutes**
-            
-            **À l'échelle quotidienne:**
-            - 1 run/jour: 65 min × 365 = 24,725 heures/an
-            - GPU (AWS): ~$0.50/h → **$12K+/an**
-            - Scaling: millions de polices → $100K+/an
-            
-            **ROI questionnable** pour assureurs petits/moyens
-            """)
-            
-            st.markdown('<div class="warning-box"><strong>Absence de cache</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            - Chaque appel LLM génère une réponse new
-            - Pas de mémoire de descriptions passées
-            - = Recalcul inutile + variation textuelle
-            """)
+        st.markdown('<div class="section-header">3️⃣ Surapprentissage XGBoost</div>', unsafe_allow_html=True)
+        st.markdown("""
+        - Le baseline (AUC = 0.6454) dépasse les variantes enrichies avec données synthétiques (AUC(CTGAN)=0.5990)
+        - Le modèle semble sensible aux écarts de distribution introduits par les synthétiques
+        - Cela suggère une augmentation de données potentiellement nuisible
+        """)
 
-    with tab4:
-        st.markdown('<div class="section-header">4️⃣ Sécurité, Confidentialité et Conformité</div>', unsafe_allow_html=True)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown('<div class="danger-box"><strong>Données brutes sur disque</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            **Risques détectés:**
-            - CSV non chiffrés dans `outputs/`
-            - Noms de polices encodés mais décodables
-            - Données synthétiques = nouvelles données (à protéger)
-            
-            **Conformité RGPD:**
-            - ❌ Pas d'anonymisation confirmée
-            - ❌ Droit à l'oubli non implémenté
-            - ❌ Pas d'audit trail des accès
-            
-            **Recommandations:**
-            - Chiffrer au repos (AES-256)
-            - RBAC sur fichiers
-            - Logs d'accès centralisés
-            """)
-            
-            st.markdown('<div class="warning-box"><strong>API LLM insécurisée</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            **État actuel:**
-            - Ollama en local HTTP (port 11434)
-            - Pas d'authentification
-            - Exposé au réseau local uniquement
-            
-            **Risques si déployé:**
-            - Man-in-the-middle sur réseau corps
-            - Injection de prompts (prompt injection attacks)
-            - Pas de rate limiting → DDoS vulnérable
-            """)
-        
-        with col2:
-            st.markdown('<div class="danger-box"><strong>Biais discriminatoire</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            **Dépistés (potentiels):**
-            - Modèle entraîné sur données imbalancées
-            - = **surprédiction sinistres chez groupes minoritaires**
-            - (ex: certaines régions, tranches d'âge)
-            
-            **Impact légal:**
-            - ❌ Discrimination algorithmique (illégale)
-            - ❌ Pénalités: CNIL, tribunaux
-            
-            **Test de fairness manquant:**
-            - Pas de métriques par groupe démographique
-            - Pas de calibration post-hoc
-            
-            **À faire:**
-            - Fairness audit complet (eg: Fairness Indicators)
-            - Débiaiser modèles si nécessaire
-            """)
-            
-            st.markdown('<div class="info-box"><strong>Données synthétiques = RE-identification possible</strong></div>', unsafe_allow_html=True)
-            st.markdown("""
-            **Danger peu connu:**
-            - GAN-generated data ≠ anonyme garantie
-            - Études montrent: possible re-identifier individus
-            - Synthétiques CTGAN/TVAE pas plus sûrs
-            
-            **Solution:** Combinaison
-            - Differential privacy en entraînement
-            - Audits de re-identification
-            """)
+        st.markdown('<div class="section-header">4️⃣ Coûts de calcul</div>', unsafe_allow_html=True)
+        st.markdown("""
+        **Entraînement actuel (CPU local):**
+        - CTGAN 300 epochs: ~10 minutes
+        - TVAE 300 epochs: ~15 minutes
+        - XGBoost 4 modèles: ~5 minutes
+        - **Total par run: ~30 minutes**
+        """)
 
-    # SYNTHÈSE FINALE
-    st.markdown("---")
-    st.markdown('<div class="section-header">📋 Résumé des Limitations Critiques</div>', unsafe_allow_html=True)
-    
-    limitations = pd.DataFrame({
-        'Catégorie': [
-            'Données', 'Données', 'Données',
-            'Modèles', 'Modèles', 'Modèles',
-            'Infrastructure', 'Infrastructure',
-            'Sécurité', 'Sécurité'
-        ],
-        'Limitation': [
-            'Déséquilibre 1:14', 'Contexte métier faible', 'Taille modeste',
-            'Synthétiques mauvaise qualité (TSTR AUC~0.55)', 'Augmentation nuisible', 'Généralisation fragile',
-            'Latence LLM excessive (28j/1M)', 'Coûts de calcul élevés',
-            'Pas de chiffrement données', 'Biais discriminatoire non audité'
-        ],
-        'Sévérité': ['Critique', 'Moyen', 'Moyen',
-                     'Critique', 'Critique', 'Moyen',
-                     'Moyen', 'Moyen',
-                     'Critique', 'Critique'],
-        'Mitigation': [
-            'SMOTE local, class weights', 'Ajouter features métier',  'Augmenter data collection',
-            'Vérifier architecture GAN', 'Tester CTGAN v1.7+', 'Cross-validation temporelle',
-            'GPU + batching', 'Cached + approximate',
-            'AES-256 + RBAC', 'Fairness audit + differential privacy'
-        ]
-    })
-    
-    st.dataframe(limitations, use_container_width=True)
-    
-    st.markdown('---')
-    st.markdown('<div class="section-header">🚀 Recommandations Prioritaires (Roadmap)</div>', unsafe_allow_html=True)
-    st.markdown("""
-    ### Phase 1 (Court terme - 1-2 mois)
-    1. **Fairness Audit** — Vérifier absence de biais par démographique
-    2. **Chiffrement données** — Protéger CSVs sur disque
-    3. **TSTR investigation** — Diagnostiquer pourquoi synthétiques échouent seuls
-    4. **Threshold tuning** — Optimiser seuil décision (pas 0.5 fixe)
-    
-    ### Phase 2 (Moyen terme - 3-6 mois)
-    1. **Ajouter features métier** — Historique sinistres, géolocalisation fine
-    2. **Réévaluer CTGAN/TVAE** — Tenter normalization fix ou hyperparams
-    3. **GPU infrastructure** — Réduire latence LLM de 28j → 2-3 jours
-    4. **Differential privacy** — Synthétiques provably private
-    
-    ### Phase 3 (Long terme - 6-12 mois)
-    1. **Modèle Ensemble** — Combiner CTGAN + TVAE + SMOTE intelligemment
-    2. **Temporal validation** — Test modèle sur futures données
-    3. **RBAC + audit logs** — Conformité RGPD complète
-    4. **Production pipeline** — Retraining daily automatisé
-    """)
+        st.markdown('<div class="section-header">5️⃣ Biais discriminatoire</div>', unsafe_allow_html=True)
+        st.markdown("""
+        - Les métriques globales peuvent masquer des écarts selon les groupes de population
+        - Le modèle peut sur-prédire le risque pour certains segments et sous-prédire pour d'autres
+        - C'est un point critique pour une utilisation assurance conforme et équitable
+        """)
+
+        st.markdown("---")
+        st.markdown('<div class="section-header"> Plan d\'action (court, moyen, long terme)</div>', unsafe_allow_html=True)
+        st.markdown("""
+        ### Court terme
+        1. **Déséquilibre de classes extrême** : affiner le seuil de décision selon le coût métier
+        2. **Surapprentissage XGBoost** : renforcer la validation croisée et la régularisation
+        3. **Biais discriminatoire** : lancer un audit fairness de base par segments
+
+        ### Moyen terme
+        1. **Passage à l'échelle des données** : enrichir le volume et la diversité des données réelles
+        2. **Coûts de calcul** : optimiser le pipeline d'entraînement et de réentraînement
+        3. **Surapprentissage XGBoost** : stabiliser l'apport des données synthétiques avant augmentation massive
+
+        ### Long terme
+        1. **Passage à l'échelle des données** : industrialiser l'ingestion et la gouvernance des données
+        2. **Coûts de calcul** : migrer vers une infrastructure scalable avec suivi coût-performance
+        3. **Biais discriminatoire** : intégrer un monitoring continu de fairness en production
+        """)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 6 — PRÉDICTION INDIVIDUELLE
