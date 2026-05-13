@@ -1,4 +1,4 @@
-# Extraction et Génération de Descriptions de Sinistres avec LLM
+# Génération de données de synthèse de sinistres et descriptions en LLM
 
 Projet de Deep Learning/IA générative de Master 2 ES
 
