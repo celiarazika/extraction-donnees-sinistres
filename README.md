@@ -39,7 +39,7 @@ Générer des données synthétiques de sinistres à partir d'une base de donné
    - Tests statistiques (KS test, courbes ROC/PR)
    - Analyse de sensibilité
 
-## Démarrage Rapide
+## Démarrage en local
 
 ### 1. Prérequis: Installer Ollama (optionnel mais recommandé)
 
