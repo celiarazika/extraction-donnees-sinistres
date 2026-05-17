@@ -1,7 +1,7 @@
 # Génération de données de synthèse de sinistres et descriptions en LLM
 
 Projet de Deep Learning/IA générative de Master 2 ES
-
+**Application:** https://sinistres.streamlit.app/
 **Données:** https://www.kaggle.com/datasets/litvinenko630/insurance-claims
 
 ## Objectif
